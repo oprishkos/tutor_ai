@@ -1,17 +1,18 @@
-# 🐼 Panda AI — Подбор заданий по математике
+# 🐼 Panda AI — Помощник репетитора по математике
 
-> ИИ-помощник для репетиторов: подбирает задания из базы по классу, теме и уровню ученика. Если заданий не хватает — генерирует новые через Claude AI и сохраняет в базу.
+> Подбирает задания из базы по классу, теме и уровню ученика. База наполняется из реальных учебников и растёт автоматически через Claude AI.
 
-![Preview](https://img.shields.io/badge/status-beta-2ec4b6?style=flat-square) ![Python](https://img.shields.io/badge/python-3.10+-4a9edd?style=flat-square&logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-2ec4b6?style=flat-square&logo=fastapi&logoColor=white) ![License](https://img.shields.io/badge/license-MIT-a8d4f0?style=flat-square)
+![Status](https://img.shields.io/badge/status-beta-2ec4b6?style=flat-square) ![Python](https://img.shields.io/badge/python-3.10+-4a9edd?style=flat-square&logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-2ec4b6?style=flat-square&logo=fastapi&logoColor=white) ![License](https://img.shields.io/badge/license-MIT-a8d4f0?style=flat-square)
 
 ---
 
 ## ✨ Возможности
 
-- 📚 База из **82 готовых заданий** по математике для 5–9 класса
+- 📚 **500+ заданий** из реального учебника математики 5 класса (Герасимов)
 - 🎯 Три уровня сложности: Слабый / Средний / Сильный
-- 🤖 Автодогенерация заданий через **Claude AI** когда база исчерпана
-- 💾 Все сгенерированные задания сохраняются в базу — она растёт сама
+- 🤖 Автодогенерация через **Claude AI** когда в базе не хватает заданий
+- 💾 Сгенерированные задания сохраняются — база растёт сама
+- 📖 Импорт заданий из любого PDF учебника без AI
 - 📋 Копирование заданий одной кнопкой
 - 🌐 Чистый фронтенд без фреймворков — просто HTML/CSS/JS
 
@@ -20,17 +21,24 @@
 ## 🗂 Структура проекта
 
 ```
-tutor-ai/
+panda-ai/
+├── .gitignore
+├── README.md
 ├── backend/
-│   ├── main.py          ← FastAPI: все эндпоинты
-│   ├── database.py      ← SQLite + SQLAlchemy
-│   ├── models.py        ← Модель таблицы tasks
-│   ├── seed.py          ← Начальное заполнение базы
+│   ├── main.py                ← FastAPI: все эндпоинты
+│   ├── database.py            ← SQLite + SQLAlchemy
+│   ├── models.py              ← Модель таблицы tasks
+│   ├── seed.py                ← Стартовые задания (~82 шт.)
+│   ├── import_from_pdf.py     ← Импорт заданий из PDF учебника
+│   ├── generate_dataset.py    ← Массовая генерация через Claude AI
+│   ├── generate_from_book.py  ← Генерация на основе текста учебника
 │   ├── requirements.txt
 │   └── .env.example
 └── frontend/
-    └── index.html       ← Вся страница (один файл)
+    └── index.html             ← Вся страница (один файл)
 ```
+
+> ⚠️ Файлы `.env`, `tutor.db`, `venv/` в репозиторий не попадают — они в `.gitignore`
 
 ---
 
@@ -61,7 +69,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Настрой переменные окружения
+### 4. Создай `.env` файл
 
 ```bash
 cp .env.example .env
@@ -75,7 +83,9 @@ ANTHROPIC_API_KEY=sk-ant-api03-твой-ключ
 
 Получить ключ: [console.anthropic.com](https://console.anthropic.com)
 
-### 5. Заполни базу заданиями
+> Ключ нужен только для AI-генерации. Задания из базы работают без него.
+
+### 5. Заполни базу
 
 ```bash
 python seed.py
@@ -95,13 +105,53 @@ uvicorn main:app --reload --port 8000
 
 ---
 
-## 📡 API эндпоинты
+## 📖 Импорт заданий из учебника (PDF)
+
+Самый быстрый способ наполнить базу — загрузить задания прямо из PDF учебника без использования AI.
+
+```bash
+pip install pymupdf
+
+# Положи PDF в папку backend/ и запусти:
+python import_from_pdf.py --pdf "название_учебника.pdf" --grade 5
+```
+
+Скрипт:
+- Парсит все задания из PDF по страницам
+- Распределяет по темам согласно программе
+- Автоматически делит на уровни: слабый / средний / сильный
+- Удаляет старые записи и заменяет чистыми
+
+Сейчас поддерживается учебник **Герасимова, 5 класс**. Для других классов — добавь маппинг страниц в `PAGE_TOPIC_MAP_{grade}`.
+
+---
+
+## 🤖 Массовая генерация через Claude AI
+
+Если нужно быстро заполнить базу для всех классов:
+
+```bash
+# ~630 заданий для 5-9 класса, использует claude-haiku (~$0.10)
+python generate_dataset.py
+```
+
+Или на основе конкретного учебника:
+
+```bash
+python generate_from_book.py --pdf "учебник.pdf"
+```
+
+Оба скрипта пропускают темы где заданий уже достаточно и продолжают с того места если прервать.
+
+---
+
+## 📡 API
 
 | Метод | Путь | Описание |
 |-------|------|----------|
 | `GET` | `/health` | Проверка сервера |
 | `GET` | `/stats` | Статистика базы |
-| `GET` | `/topics?grade=8` | Список тем для класса |
+| `GET` | `/topics?grade=8` | Темы для класса |
 | `POST` | `/generate` | Подобрать задания |
 
 ### POST /generate
@@ -118,24 +168,24 @@ uvicorn main:app --reload --port 8000
 
 ---
 
-## 🧠 Как работает логика подбора
+## 🧠 Логика подбора заданий
 
 ```
 Репетитор: 8 класс + Квадратные уравнения + Средний + 5 заданий
-                          ↓
-             Ищем в базе по фильтрам
-                          ↓
-          ┌───────────────┴───────────────┐
-     Нашли 5+                        Нашли меньше 5
-          ↓                               ↓
-   Случайная выборка            Claude AI догенерирует
-   из базы (бесплатно)          недостающие и сохранит
-                                    в базу навсегда
+                              ↓
+                   Ищем в базе по фильтрам
+                              ↓
+          ┌───────────────────┴───────────────────┐
+       Нашли 5+                               Нашли меньше 5
+          ↓                                        ↓
+  Случайная выборка                    Claude AI догенерирует
+  из базы (бесплатно)                  недостающее и сохранит
+                                           в базу навсегда
 ```
 
 ---
 
-## ➕ Добавить свои задания
+## ➕ Добавить задания вручную
 
 Открой `backend/seed.py` и добавь в массив `TASKS`:
 
@@ -157,6 +207,11 @@ uvicorn main:app --reload --port 8000
 | Фронтенд | HTML / CSS / Vanilla JS |
 | Бэкенд | Python 3.10+ / FastAPI |
 | База данных | SQLite (dev) / PostgreSQL (prod) |
-| AI | Anthropic Claude Sonnet |
+| AI | Anthropic Claude Sonnet / Haiku |
+| Парсинг PDF | PyMuPDF (fitz) |
 
 ---
+
+## 📄 Лицензия
+
+MIT
