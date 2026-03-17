@@ -30,7 +30,8 @@ app = FastAPI(title="Tutor AI API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("FRONTEND_ORIGIN", "*")],
+    allow_origins=["*"],
+    allow_origin_regex=".*",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -49,6 +50,7 @@ class TaskOut(BaseModel):
     answer: str
     hint: Optional[str]
     source: str
+    page_number: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -142,7 +144,7 @@ def _generate_ai_tasks(grade: int, topic: str, level: str, count: int,
 # ── Эндпоинты ─────────────────────────────────────────────────────────────────
 
 @app.get("/topics")
-def get_topics(grade: int = Query(..., ge=5, le=9), db: Session = Depends(get_db)):
+def get_topics(grade: int = Query(..., ge=1, le=11), db: Session = Depends(get_db)):
     """Возвращает список тем для выбранного класса."""
     rows = (
         db.query(Task.topic, func.count(Task.id).label("count"))
